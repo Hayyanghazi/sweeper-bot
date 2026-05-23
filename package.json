@@ -1,0 +1,12 @@
+{
+  "name": "sweeper-bot",
+  "version": "1.0.0",
+  "main": "sweeper.js",
+  "scripts": {
+    "start": "node sweeper.js"
+  },
+  "dependencies": {
+    "ethers": "^6.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
