@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sweeper Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pink: #FF2D78;
+    --pink-light: #FF6BA8;
+    --pink-pale: #FFD6E7;
+    --white: #FFFFFF;
+    --glass-white: rgba(255,255,255,0.72);
+    --glass-pink: rgba(255,45,120,0.12);
+    --glass-border: rgba(255,255,255,0.55);
+    --glass-shadow: rgba(255,45,120,0.18);
+    --bg: #FFF0F5;
+    --text-dark: #1a0a10;
+    --text-mid: #7a3a55;
+    --text-soft: #c490a8;
+    --green: #30D158;
+    --yellow: #FFD60A;
+    --blue: #0A84FF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Animated background blobs */
+  .bg-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+    pointer-events: none;
+    animation: blobFloat 8s ease-in-out infinite alternate;
+  }
+  .bg-blob-1 {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, #FF2D78, #FF6BA8);
+    top: -200px; right: -150px;
+    animation-delay: 0s;
+  }
+  .bg-blob-2 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, #FFB3D1, #FF2D78);
+    bottom: -100px; left: -100px;
+    animation-delay: 3s;
+  }
+  .bg-blob-3 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, #FFC8DC, #FFB3D1);
+    top: 40%; left: 30%;
+    animation-delay: 1.5s;
+  }
+
+  @keyframes blobFloat {
+    from { transform: scale(1) translate(0, 0); }
+    to   { transform: scale(1.1) translate(20px, -20px); }
+  }
+
+  /* Glass mixin */
+  .glass {
+    background: var(--glass-white);
+    backdrop-filter: blur(28px) saturate(1.8);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    border: 1.5px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow:
+      0 8px 32px var(--glass-shadow),
+      0 1.5px 0 rgba(255,255,255,0.9) inset,
+      0 -1px 0 rgba(255,45,120,0.08) inset;
+  }
+
+  .glass-dark {
+    background: rgba(255,45,120,0.08);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border: 1.5px solid rgba(255,45,120,0.2);
+    border-radius: 18px;
+    box-shadow: 0 4px 20px rgba(255,45,120,0.1);
+  }
+
+  /* Layout */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding: 16px 24px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--pink), var(--pink-light));
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(255,45,120,0.4);
+  }
+
+  .header-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-dark);
+    letter-spacing: -0.5px;
+  }
+
+  .header-sub {
+    font-size: 12px;
+    color: var(--text-soft);
+    font-weight: 500;
+    margin-top: 1px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green);
+    background: rgba(48,209,88,0.12);
+    border: 1.5px solid rgba(48,209,88,0.3);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--pink), transparent);
+    opacity: 0.6;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-dark);
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-value span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pink);
+  }
+
+  .stat-change {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green);
+  }
+
+  /* Main grid */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* Chain status */
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 16px;
+  }
+
+  .chain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chain-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.5);
+    border: 1.5px solid rgba(255,255,255,0.7);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .chain-item:hover {
+    background: rgba(255,45,120,0.06);
+    border-color: rgba(255,45,120,0.2);
+    transform: translateX(4px);
+  }
+
+  .chain-icon {
+    width: 38px; height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .chain-info { flex: 1; }
+
+  .chain-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+
+  .chain-rpc {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 2px;
+  }
+
+  .chain-right { text-align: right; }
+
+  .chain-swept {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+
+  .chain-count {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 2px;
+  }
+
+  .chain-status {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  /* Activity feed */
+  .activity-card {
+    padding: 20px;
+  }
+
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .activity-list::-webkit-scrollbar { width: 4px; }
+  .activity-list::-webkit-scrollbar-track { background: transparent; }
+  .activity-list::-webkit-scrollbar-thumb { background: var(--pink-pale); border-radius: 4px; }
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+    animation: slideIn 0.4s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .activity-icon {
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(255,45,120,0.15), rgba(255,107,168,0.15));
+  }
+
+  .activity-info { flex: 1; min-width: 0; }
+
+  .activity-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .activity-time {
+    font-size: 10px;
+    color: var(--text-soft);
+    margin-top: 1px;
+  }
+
+  .activity-amount {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--pink);
+    white-space: nowrap;
+  }
+
+  /* Token breakdown */
+  .token-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .token-card {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .token-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .token-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+
+  .token-amount {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-dark);
+    letter-spacing: -0.5px;
+  }
+
+  .token-usd {
+    font-size: 11px;
+    color: var(--text-soft);
+  }
+
+  /* Tx history table */
+  .history-card {
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1.5fr 1fr;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+
+  .table-header span {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .table-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1.5fr 1fr;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+    margin-bottom: 6px;
+    align-items: center;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .table-row:hover {
+    background: rgba(255,45,120,0.05);
+    border-color: rgba(255,45,120,0.15);
+  }
+
+  .table-row span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+
+  .table-row .tx-hash {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--pink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .badge-success {
+    background: rgba(48,209,88,0.15);
+    color: var(--green);
+  }
+
+  .badge-pending {
+    background: rgba(255,214,10,0.15);
+    color: var(--yellow);
+  }
+
+  /* Bottom bar */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+  }
+
+  .bottom-info {
+    font-size: 12px;
+    color: var(--text-soft);
+    font-weight: 500;
+  }
+
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    background: linear-gradient(135deg, var(--pink), var(--pink-light));
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(255,45,120,0.4);
+    transition: all 0.2s;
+    font-family: 'Syne', sans-serif;
+  }
+
+  .refresh-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(255,45,120,0.5);
+  }
+
+  .refresh-btn:active { transform: translateY(0); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .token-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .table-header, .table-row { grid-template-columns: 2fr 1fr 1fr; }
+    .table-header span:nth-child(4),
+    .table-header span:nth-child(5),
+    .table-row span:nth-child(4),
+    .table-row span:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-blob bg-blob-1"></div>
+<div class="bg-blob bg-blob-2"></div>
+<div class="bg-blob bg-blob-3"></div>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="glass header">
+    <div class="header-left">
+      <div class="logo">🛡️</div>
+      <div>
+        <div class="header-title">Sweeper Dashboard</div>
+        <div class="header-sub">Real-time wallet protection monitor</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="text-align:right;">
+        <div style="font-size:11px; color:var(--text-soft); font-weight:600;">LAST SWEEP</div>
+        <div style="font-size:13px; font-weight:700; color:var(--text-dark);" id="lastSweep">Just now</div>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        ACTIVE
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="glass stat-card">
+      <div class="stat-label">Total Swept</div>
+      <div class="stat-value" id="totalSwept">$0<span>.00</span></div>
+      <div class="stat-change" id="totalChange">↑ All time</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="stat-label">Transactions</div>
+      <div class="stat-value" id="totalTx">0</div>
+      <div class="stat-change" id="txChange">↑ Successful</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="stat-label">Chains Active</div>
+      <div class="stat-value">4<span>/4</span></div>
+      <div class="stat-change">↑ All online</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="stat-label">Gas Saved</div>
+      <div class="stat-value" id="gasSaved">$0<span>.00</span></div>
+      <div class="stat-change">↑ Optimized</div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+
+    <!-- Left: Chains + History -->
+    <div>
+      <div class="glass" style="padding:20px; margin-bottom:16px;">
+        <div class="section-title">Chain Monitor</div>
+        <div class="chain-list" id="chainList">
+
+          <div class="chain-item">
+            <div class="chain-icon" style="background:rgba(98,126,234,0.15);">⟠</div>
+            <div class="chain-info">
+              <div class="chain-name">Ethereum</div>
+              <div class="chain-rpc">eth.llamarpc.com</div>
+            </div>
+            <div class="chain-right">
+              <div class="chain-swept" id="ethSwept">$0.00</div>
+              <div class="chain-count" id="ethCount">0 txns</div>
+            </div>
+            <div class="chain-status"></div>
+          </div>
+
+          <div class="chain-item">
+            <div class="chain-icon" style="background:rgba(243,186,47,0.15);">⬡</div>
+            <div class="chain-info">
+              <div class="chain-name">BSC</div>
+              <div class="chain-rpc">bsc-dataseed1.defibit.io</div>
+            </div>
+            <div class="chain-right">
+              <div class="chain-swept" id="bscSwept">$0.00</div>
+              <div class="chain-count" id="bscCount">0 txns</div>
+            </div>
+            <div class="chain-status"></div>
+          </div>
+
+          <div class="chain-item">
+            <div class="chain-icon" style="background:rgba(0,82,255,0.12);">🔵</div>
+            <div class="chain-info">
+              <div class="chain-name">Base</div>
+              <div class="chain-rpc">mainnet.base.org</div>
+            </div>
+            <div class="chain-right">
+              <div class="chain-swept" id="baseSwept">$0.00</div>
+              <div class="chain-count" id="baseCount">0 txns</div>
+            </div>
+            <div class="chain-status"></div>
+          </div>
+
+          <div class="chain-item">
+            <div class="chain-icon" style="background:rgba(40,160,240,0.15);">🔷</div>
+            <div class="chain-info">
+              <div class="chain-name">Arbitrum</div>
+              <div class="chain-rpc">arb1.arbitrum.io/rpc</div>
+            </div>
+            <div class="chain-right">
+              <div class="chain-swept" id="arbSwept">$0.00</div>
+              <div class="chain-count" id="arbCount">0 txns</div>
+            </div>
+            <div class="chain-status"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Token Breakdown -->
+      <div class="token-grid">
+        <div class="glass token-card">
+          <div class="token-icon" style="background:rgba(39,117,202,0.15);">💲</div>
+          <div>
+            <div class="token-name">USDC</div>
+            <div class="token-amount" id="usdcTotal">0.00</div>
+            <div class="token-usd" id="usdcTx">0 sweeps</div>
+          </div>
+        </div>
+        <div class="glass token-card">
+          <div class="token-icon" style="background:rgba(38,161,123,0.15);">💵</div>
+          <div>
+            <div class="token-name">USDT</div>
+            <div class="token-amount" id="usdtTotal">0.00</div>
+            <div class="token-usd" id="usdtTx">0 sweeps</div>
+          </div>
+        </div>
+        <div class="glass token-card">
+          <div class="token-icon" style="background:rgba(255,45,120,0.15);">🔮</div>
+          <div>
+            <div class="token-name">CUSTOM</div>
+            <div class="token-amount" id="customTotal">0.00</div>
+            <div class="token-usd" id="customTx">0 sweeps</div>
+          </div>
+        </div>
+        <div class="glass token-card">
+          <div class="token-icon" style="background:rgba(48,209,88,0.15);">⛽</div>
+          <div>
+            <div class="token-name">Gas Used</div>
+            <div class="token-amount" id="gasUsed">$0.00</div>
+            <div class="token-usd">Total fees paid</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Live Activity -->
+    <div class="glass activity-card">
+      <div class="section-title">Live Activity</div>
+      <div class="activity-list" id="activityFeed">
+        <div style="text-align:center; padding:40px 0; color:var(--text-soft); font-size:13px;">
+          <div style="font-size:32px; margin-bottom:8px;">👁️</div>
+          Watching for sweeps...
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Transaction History -->
+  <div class="glass history-card">
+    <div class="section-title">Transaction History</div>
+    <div class="table-header">
+      <span>Token</span>
+      <span>Chain</span>
+      <span>Amount</span>
+      <span>TX Hash</span>
+      <span>Status</span>
+    </div>
+    <div id="txHistory">
+      <div style="text-align:center; padding:30px 0; color:var(--text-soft); font-size:13px;">
+        No transactions yet — bot is monitoring...
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Bar -->
+  <div class="glass bottom-bar">
+    <div class="bottom-info" id="botInfo">
+      🤖 Bot active · Scanning every 3s · 4 chains · 7 tokens
+    </div>
+    <button class="refresh-btn" onclick="simulateSweep()">
+      ⚡ Simulate Sweep
+    </button>
+  </div>
+
+</div>
+
+<script>
+  // Dashboard state
+  const state = {
+    totalSwept: 0,
+    totalTx: 0,
+    gasSaved: 0,
+    gasUsed: 0,
+    chains: {
+      Ethereum: { swept: 0, count: 0 },
+      BSC:      { swept: 0, count: 0 },
+      Base:     { swept: 0, count: 0 },
+      Arbitrum: { swept: 0, count: 0 },
+    },
+    tokens: {
+      USDC:   { total: 0, count: 0 },
+      USDT:   { total: 0, count: 0 },
+      CUSTOM: { total: 0, count: 0 },
+    },
+    activity: [],
+    txHistory: [],
+  };
+
+  const chains = ['Ethereum', 'BSC', 'Base', 'Arbitrum'];
+  const tokens = ['USDC', 'USDT', 'CUSTOM'];
+  const chainIds = { Ethereum: 'eth', BSC: 'bsc', Base: 'base', Arbitrum: 'arb' };
+
+  function fmt(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function randomHash() {
+    return '0x' + Array.from({length: 12}, () => Math.floor(Math.random()*16).toString(16)).join('') + '...';
+  }
+
+  function timeAgo(date) {
+    const s = Math.floor((Date.now() - date) / 1000);
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    return `${Math.floor(s/3600)}h ago`;
+  }
+
+  function updateStats() {
+    document.getElementById('totalSwept').innerHTML = `$${fmt(state.totalSwept)}<span></span>`;
+    document.getElementById('totalTx').textContent = state.totalTx;
+    document.getElementById('gasSaved').innerHTML = `$${fmt(state.gasSaved)}<span></span>`;
+    document.getElementById('totalChange').textContent = `↑ $${fmt(state.totalSwept)} all time`;
+    document.getElementById('txChange').textContent = `↑ ${state.totalTx} successful`;
+
+    // Chains
+    const chainMap = { Ethereum: 'eth', BSC: 'bsc', Base: 'base', Arbitrum: 'arb' };
+    for (const [chain, id] of Object.entries(chainMap)) {
+      document.getElementById(`${id}Swept`).textContent = `$${fmt(state.chains[chain].swept)}`;
+      document.getElementById(`${id}Count`).textContent = `${state.chains[chain].count} txns`;
+    }
+
+    // Tokens
+    document.getElementById('usdcTotal').textContent = fmt(state.tokens.USDC.total);
+    document.getElementById('usdtTotal').textContent = fmt(state.tokens.USDT.total);
+    document.getElementById('customTotal').textContent = fmt(state.tokens.CUSTOM.total);
+    document.getElementById('usdcTx').textContent = `${state.tokens.USDC.count} sweeps`;
+    document.getElementById('usdtTx').textContent = `${state.tokens.USDT.count} sweeps`;
+    document.getElementById('customTx').textContent = `${state.tokens.CUSTOM.count} sweeps`;
+    document.getElementById('gasUsed').textContent = `$${fmt(state.gasUsed)}`;
+
+    document.getElementById('lastSweep').textContent = state.totalTx > 0 ? 'Just now' : 'Waiting...';
+  }
+
+  function addActivity(chain, token, amount) {
+    const item = { chain, token, amount, time: Date.now() };
+    state.activity.unshift(item);
+    if (state.activity.length > 20) state.activity.pop();
+
+    const feed = document.getElementById('activityFeed');
+    const icons = { USDC: '💲', USDT: '💵', CUSTOM: '🔮' };
+
+    const el = document.createElement('div');
+    el.className = 'activity-item';
+    el.innerHTML = `
+      <div class="activity-icon">${icons[token] || '💰'}</div>
+      <div class="activity-info">
+        <div class="activity-title">Swept ${token} on ${chain}</div>
+        <div class="activity-time">${timeAgo(item.time)}</div>
+      </div>
+      <div class="activity-amount">+$${fmt(amount)}</div>
+    `;
+
+    if (feed.querySelector('div[style]')) feed.innerHTML = '';
+    feed.insertBefore(el, feed.firstChild);
+  }
+
+  function addTxRow(chain, token, amount, hash) {
+    const history = document.getElementById('txHistory');
+    if (history.querySelector('div[style]')) history.innerHTML = '';
+
+    const row = document.createElement('div');
+    row.className = 'table-row';
+    row.innerHTML = `
+      <span>${token}</span>
+      <span>${chain}</span>
+      <span>$${fmt(amount)}</span>
+      <span class="tx-hash">${hash}</span>
+      <span><div class="badge badge-success">✓ Done</div></span>
+    `;
+    history.insertBefore(row, history.firstChild);
+
+    // Keep max 20 rows
+    while (history.children.length > 20) history.removeChild(history.lastChild);
+  }
+
+  function simulateSweep() {
+    const chain = chains[Math.floor(Math.random() * chains.length)];
+    const token = tokens[Math.floor(Math.random() * tokens.length)];
+    const amount = parseFloat((Math.random() * 500 + 10).toFixed(2));
+    const gas = parseFloat((Math.random() * 0.5 + 0.1).toFixed(4));
+    const hash = randomHash();
+
+    state.totalSwept += amount;
+    state.totalTx++;
+    state.gasSaved += gas * 2;
+    state.gasUsed += gas;
+    state.chains[chain].swept += amount;
+    state.chains[chain].count++;
+    state.tokens[token].total += amount;
+    state.tokens[token].count++;
+
+    addActivity(chain, token, amount);
+    addTxRow(chain, token, amount, hash);
+    updateStats();
+  }
+
+  // Auto update time labels every 30s
+  setInterval(() => {
+    const items = document.querySelectorAll('.activity-time');
+    items.forEach((el, i) => {
+      if (state.activity[i]) el.textContent = timeAgo(state.activity[i].time);
+    });
+  }, 30000);
+
+  // Initial render
+  updateStats();
+</script>
+</body>
+</html>
