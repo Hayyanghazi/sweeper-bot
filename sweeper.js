@@ -1,8 +1,41 @@
 require('dotenv').config();
 const { ethers } = require('ethers');
 const fs = require('fs');
+const https = require('https');
+const http = require('http');
 
-// ── Dashboard Logger ────────────────────────────────────
+// ── Keep Alive Server ────────────────────────────────────
+// Creates a simple web server so Render never sleeps
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Sweeper bot is running!');
+}).listen(PORT, () => {
+  console.log(`💓 Keep alive server running on port ${PORT}`);
+});
+
+// Ping itself every 10 minutes to stay awake
+const RENDER_URL = process.env.RENDER_URL;
+setInterval(() => {
+  if (RENDER_URL) {
+    https.get(RENDER_URL, () => {
+      console.log('💓 Keep alive ping sent');
+    }).on('error', () => {});
+  }
+}, 600000);
+
+// ── Telegram Alerts ──────────────────────────────────────
+const TG_TOKEN   = process.env.TELEGRAM_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+function sendTelegram(message) {
+  if (!TG_TOKEN || !TG_CHAT_ID) return;
+  const text = encodeURIComponent(message);
+  const url  = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage?chat_id=${TG_CHAT_ID}&text=${text}&parse_mode=HTML`;
+  https.get(url, () => {}).on('error', () => {});
+}
+
+// ── Dashboard Logger ─────────────────────────────────────
 const LOG_FILE = 'sweeps.json';
 
 function loadLog() {
@@ -34,11 +67,11 @@ function logSweep(chain, token, amount, hash, gasUsd) {
   try { fs.writeFileSync(LOG_FILE, JSON.stringify(data, null, 2)); } catch {}
 }
 
-// ── Chains ──────────────────────────────────────────────
+// ── Chains ───────────────────────────────────────────────
 const CHAINS = [
   {
     name: 'Ethereum',
-    rpc: 'https://eth.llamarpc.com',
+    rpc: 'https://rpc.ankr.com/eth',
     chainId: 1,
     nativeGasLimit: 21000n,
     gasMultiplier: 300n,
@@ -92,19 +125,16 @@ const ERC20_ABI = [
 const SAFE_ADDRESS = process.env.SAFE_ADDRESS;
 const PRIVATE_KEY  = process.env.COMPROMISED_PRIVATE_KEY;
 
-// ── Frontrun Gas ────────────────────────────────────────
-// Pays 2x-3x current gas to beat any attacker in mempool
-// Hard cap at 5x so we never overpay
+// ── Frontrun Gas ─────────────────────────────────────────
 async function getFrontrunGas(provider, multiplier) {
-  const feeData  = await provider.getFeeData();
-  const base     = feeData.gasPrice;
-  const boosted  = base * multiplier / 100n;
-  const maxCap   = base * 500n / 100n; // 5x hard cap
-  const final    = boosted > maxCap ? maxCap : boosted;
-  return final;
+  const feeData = await provider.getFeeData();
+  const base    = feeData.gasPrice;
+  const boosted = base * multiplier / 100n;
+  const maxCap  = base * 500n / 100n;
+  return boosted > maxCap ? maxCap : boosted;
 }
 
-// ── Sweep Tokens ────────────────────────────────────────
+// ── Sweep Tokens ─────────────────────────────────────────
 async function sweepTokens(wallet, provider, tokens, chainName, gasMultiplier) {
   const gasPrice = await getFrontrunGas(provider, gasMultiplier);
   let nonce = await provider.getTransactionCount(wallet.address, 'pending');
@@ -117,7 +147,6 @@ async function sweepTokens(wallet, provider, tokens, chainName, gasMultiplier) {
       const balance = await token.balanceOf(wallet.address);
       if (balance === 0n) continue;
 
-      // Dynamic gas estimate with 30% buffer
       let gasLimit;
       try {
         gasLimit = await token.transfer.estimateGas(SAFE_ADDRESS, balance);
@@ -141,10 +170,23 @@ async function sweepTokens(wallet, provider, tokens, chainName, gasMultiplier) {
         let decimals = 18;
         try { decimals = await token.decimals(); } catch {}
         const amount = parseFloat(ethers.formatUnits(balance, decimals));
+
         console.log(`[${chainName}] ✅ ${tokenName} swept! $${amount.toFixed(2)} | TX: ${tx.hash}`);
         logSweep(chainName, tokenName, amount, tx.hash, gasCostUsd);
+
+        sendTelegram(
+          `🛡️ <b>SWEEP COMPLETE</b>\n\n` +
+          `🔗 Chain: <b>${chainName}</b>\n` +
+          `💰 Token: <b>${tokenName}</b>\n` +
+          `💵 Amount: <b>$${amount.toFixed(2)}</b>\n` +
+          `⛽ Gas: <b>$${gasCostUsd.toFixed(4)}</b>\n` +
+          `📋 TX: <code>${tx.hash}</code>\n\n` +
+          `✅ Funds safe!`
+        );
+
       }).catch(e => {
         console.error(`[${chainName}] ${tokenName} confirm error: ${e.message}`);
+        sendTelegram(`⚠️ [${chainName}] ${tokenName} failed: ${e.message}`);
       });
 
     } catch (e) {
@@ -154,17 +196,16 @@ async function sweepTokens(wallet, provider, tokens, chainName, gasMultiplier) {
   }
 }
 
-// ── Main Cycle ──────────────────────────────────────────
+// ── Main Cycle ───────────────────────────────────────────
 async function sweepAll(wallet, provider, tokens, chainName, gasMultiplier) {
   try {
     await sweepTokens(wallet, provider, tokens, chainName, gasMultiplier);
-    // Native sweep disabled — gas kept for token transfers
   } catch (e) {
     console.error(`[${chainName}] Cycle error: ${e.message}`);
   }
 }
 
-// ── Monitor Chains ──────────────────────────────────────
+// ── Monitor Chains ───────────────────────────────────────
 async function monitorChain({ name, rpc, tokens, gasMultiplier }) {
   try {
     const provider = new ethers.JsonRpcProvider(rpc);
@@ -180,14 +221,20 @@ async function monitorChain({ name, rpc, tokens, gasMultiplier }) {
   }
 }
 
-// ── Start ───────────────────────────────────────────────
+// ── Start ────────────────────────────────────────────────
 console.log('🛡️  Sweeper Bot Starting...');
 console.log('⚡  Frontrun Mode: ON');
-console.log('   Ethereum  → 3x gas');
-console.log('   BSC       → 2.5x gas');
-console.log('   Base      → 2x gas');
-console.log('   Arbitrum  → 3x gas');
-console.log('📊  Dashboard logging: ON → sweeps.json');
+console.log('📱  Telegram Alerts: ON');
+console.log('💓  Keep Alive: ON');
+console.log('📊  Dashboard Logging: ON');
 console.log('─────────────────────────────────────────');
+
+sendTelegram(
+  '🛡️ <b>Sweeper Bot Started!</b>\n\n' +
+  '⚡ Frontrun: ON\n' +
+  '💓 Keep alive: ON\n' +
+  '🔗 Monitoring 4 chains\n' +
+  '👀 Watching for tokens...'
+);
 
 CHAINS.forEach(chain => monitorChain(chain));
